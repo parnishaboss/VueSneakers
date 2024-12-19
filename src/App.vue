@@ -1,20 +1,45 @@
 <script setup>
-import {onMounted, ref} from "vue";
+import {onMounted, reactive, ref, watch} from "vue";
 
 import Header from "@/components/Header.vue";
 import CardList from "@/components/CardList.vue";
 import axios from "axios";
 
 
-  const items = ref([])
-  onMounted( async () => {
-    try {
-      const {data} = await axios.get('https://f3eb664465d7b49d.mokky.dev/items')
-      items.value = data
-    } catch (err) {
-      console.error('Ошибка при запросе', err)
+const items = ref([])
+const filters = reactive({
+  sortBy: 'title',
+  searchQuery: ''
+})
+
+const onChangeSelect = (event) => {
+  filters.sortBy = event.target.value
+}
+const onChangeSearchInput = (event) => {
+    filters.searchQuery = event.target.value
+}
+const fetchItems = async () => {
+  try {
+    const params = {
+      sortBy: filters.sortBy,
     }
-  })
+    if (filters.searchQuery) {
+        params.title = `*${filters.searchQuery}*`
+    }
+
+    const {data} = await axios.get(
+        `https://f3eb664465d7b49d.mokky.dev/items`, {
+            params
+        }
+    )
+    items.value = data
+  } catch (err) {
+    console.error('Ошибка при запросе', err)
+  }
+}
+
+onMounted(fetchItems)
+watch(filters, fetchItems)
 
 </script>
 
@@ -29,15 +54,17 @@ import axios from "axios";
       <div class="flex justify-between items-center">
         <h2 class="text-3xl font-bold mb-8">Все кроссовки</h2>
         <div class="flex gap-4">
-          <select class="py-2 px-3 border border-gray-300 rounded-md outline-none">
-            <option>По названию</option>
-            <option>По цене (сразу дешёвые)</option>
-            <option>По цене (сразу дорогие)</option>
+          <select @change="onChangeSelect" class="py-2 px-3 border border-gray-300 rounded-md outline-none">
+            <option value="name">По названию</option>
+            <option value="price">По цене (сразу дешёвые)</option>
+            <option value="-price">По цене (сразу дорогие)</option>
           </select>
 
           <div class="relative">
             <img class="absolute left-3 top-3" src="/search.svg" alt="">
-            <input class="border border-gray-300 rounded-md py-2 pl-11 pr-4 outline-none focus:border-gray-500"
+            <input
+                    @input="onChangeSearchInput"
+                    class="border border-gray-300 rounded-md py-2 pl-11 pr-4 outline-none focus:border-gray-500"
                    placeholder="Поиск...">
           </div>
         </div>
