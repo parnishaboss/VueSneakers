@@ -1,17 +1,35 @@
 <script setup>
-import {onMounted, provide, reactive, ref, watch} from "vue";
+import {computed, onMounted, provide, reactive, ref, watch} from "vue";
 
 import Header from "@/components/Header.vue";
 import CardList from "@/components/CardList.vue";
 import axios from "axios";
+import Drawer from "@/components/Drawer.vue";
 
 
 const items = ref([])
+const cart = ref([])
+const isCreatingOrder = ref(false)
+
+const totalPrice = computed(() => cart.value.reduce((acc, item) => acc + item.price, 0))
+const vatPrice = computed(() => {
+  return Math.round((totalPrice.value * 5) / 100);
+});
+const cartButtonDisabled = computed(() =>
+  isCreatingOrder.value ? true : !totalPrice.value)
 
 const filters = reactive({
   sortBy: 'title',
   searchQuery: ''
 })
+
+const drawerOpen = ref(false)
+const openDrawer = () => {
+  drawerOpen.value = true
+}
+const closeDrawer = () => {
+  drawerOpen.value = false
+}
 
 const onChangeSelect = (event) => {
   filters.sortBy = event.target.value
@@ -19,6 +37,7 @@ const onChangeSelect = (event) => {
 const onChangeSearchInput = (event) => {
   filters.searchQuery = event.target.value
 }
+
 const fetchItems = async () => {
   try {
     const params = {
@@ -43,8 +62,7 @@ const fetchItems = async () => {
     console.error('Ошибка при запросе', err)
   }
 }
-
-const fetchFovourits = async () => {
+const fetchFavourites = async () => {
   try {
     const {data: favourites} = await axios.get(
       `https://f3eb664465d7b49d.mokky.dev/favourites`)
@@ -62,6 +80,22 @@ const fetchFovourits = async () => {
     // console.log(items.value)
   } catch (err) {
     console.error('Ошибка при запросе', err)
+  }
+}
+
+const createOrder = async () => {
+  try {
+    isCreatingOrder.value = true
+    const {data} = await axios.post(`https://f3eb664465d7b49d.mokky.dev/orders`, {
+      items: cart.value,
+      totalPrice: totalPrice.value,
+    })
+    cart.value = []
+    return data
+  } catch (err) {
+    console.log(err)
+  } finally {
+    isCreatingOrder.value = false
   }
 }
 
@@ -87,26 +121,61 @@ const addToFavourite = async (item) => {
 }
 provide('addToFavourite', addToFavourite)
 
+const addToCart = (item) => {
+  cart.value.push(item)
+  item.isAdded = true
+}
+const removeFromCart = (item) => {
+  cart.value.splice(cart.value.indexOf(item), 1)
+  item.isAdded = false
+}
+const onClickAddPlus = (item) => {
+  if (!item.isAdded) {
+    addToCart(item)
+  } else {
+    removeFromCart(item)
+  }
+}
+
 onMounted(async () => {
   await fetchItems()
-  await fetchFovourits()
+  await fetchFavourites()
 })
 watch(filters, fetchItems)
-
+watch(cart , () => {
+  items.value = items.value.map((item) => ({
+    ...item,
+    isAdded:false
+  }))
+})
+provide('cart', {
+  cart,
+  closeDrawer,
+  openDrawer,
+  addToCart,
+  removeFromCart,
+})
 </script>
 
 
 <template>
-  <!--  <Drawer/>-->
+  <Drawer v-if="drawerOpen"
+          :total-price="totalPrice"
+          :vat-price="vatPrice"
+          @create-order="createOrder"
+          :button-disabled="cartButtonDisabled"
+  />
   <div class="bg-amber-50 w-4/5 m-auto rounded-xl shadow-xl mt-14">
 
-    <Header/>
+    <Header :total-price="totalPrice"
+            @open-drawer="openDrawer"/>
 
     <div class="p-10">
       <div class="flex justify-between items-center">
         <h2 class="text-3xl font-bold mb-8">Все кроссовки</h2>
         <div class="flex gap-4">
-          <select @change="onChangeSelect" class="py-2 px-3 border border-gray-300 rounded-md outline-none">
+          <select @change="onChangeSelect"
+                  class="py-2 px-3 border border-gray-300 rounded-md outline-none">
             <option value="name">По названию</option>
             <option value="price">По цене (сразу дешёвые)</option>
             <option value="-price">По цене (сразу дорогие)</option>
@@ -123,7 +192,7 @@ watch(filters, fetchItems)
 
       </div>
       <div class="mt-10">
-        <CardList :items="items" @addToFavourite="addToFavourite"/>
+        <CardList :items="items" @add-to-favourite="addToFavourite" @add-to-cart="onClickAddPlus"/>
       </div>
 
     </div>
