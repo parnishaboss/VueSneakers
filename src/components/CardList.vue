@@ -1,7 +1,6 @@
 <script setup>
 import Card from "@/components/Card.vue";
 
-
 defineProps({
   items: Array
 })
@@ -12,7 +11,7 @@ const emit = defineEmits(['addToFavourite', 'addToCart'])
 
 
 <template>
-  <div class="grid grid-cols-4 gap-5 ">
+  <div class="grid grid-cols-4 gap-5 " v-auto-animate>
     <Card
       v-for="item in items"
       v-if="items.length > 0"

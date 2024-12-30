@@ -138,16 +138,28 @@ const onClickAddPlus = (item) => {
 }
 
 onMounted(async () => {
+  const localCart = localStorage.getItem('cart')
+  cart.value = localCart ? JSON.parse(localCart) : []
+
   await fetchItems()
   await fetchFavourites()
-})
-watch(filters, fetchItems)
-watch(cart , () => {
+
   items.value = items.value.map((item) => ({
     ...item,
-    isAdded:false
+    isAdded: cart.value.some((cartItem) => cartItem.id === item.id)
   }))
 })
+watch(filters, fetchItems)
+watch(cart, () => {
+  items.value = items.value.map((item) => ({
+    ...item,
+    isAdded: false
+  }))
+})
+watch(cart, () => {
+    localStorage.setItem('cart', JSON.stringify(cart.value))
+  },
+  {deep: true})
 provide('cart', {
   cart,
   closeDrawer,
@@ -164,6 +176,7 @@ provide('cart', {
           :vat-price="vatPrice"
           @create-order="createOrder"
           :button-disabled="cartButtonDisabled"
+          @close-driver="closeDrawer"
   />
   <div class="bg-amber-50 w-4/5 m-auto rounded-xl shadow-xl mt-14">
 
